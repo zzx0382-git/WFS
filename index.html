@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>未发送 - 情绪收集器</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="app-container" id="appContainer">
+        <header class="header">
+            <div class="logo">未发送</div>
+            <div class="tagline">UNSENT</div>
+        </header>
+
+        <section class="emotion-quote" id="emotionQuote">
+            <span class="quote-icon">"</span>
+            <p class="quote-text" id="quoteText">有些话，注定要留在草稿箱里</p>
+            <span class="quote-author" id="quoteAuthor">—— 匿名</span>
+        </section>
+
+        <main class="main-content">
+            <div class="post-form" id="postForm">
+                <textarea 
+                    id="postContent" 
+                    placeholder="写下那些没说出口的话..." 
+                    maxlength="200"
+                ></textarea>
+                <div class="form-footer">
+                    <span class="char-count" id="charCount">0/200</span>
+                    <button class="submit-btn" id="submitBtn">保存到草稿箱</button>
+                </div>
+            </div>
+
+            <div class="echo-section">
+                <div class="section-header">
+                    <span class="section-icon">📝</span>
+                    <span class="section-title">别人的草稿箱</span>
+                </div>
+                
+                <div class="echo-list" id="echoList">
+                    <!-- 动态加载心声卡片 -->
+                </div>
+
+                <div class="empty-state" id="emptyState">
+                    <span class="empty-icon">📭</span>
+                    <p>还没有未发送的消息<br>成为第一个留下心事的人吧</p>
+                </div>
+
+                <div class="scroll-indicator">
+                    <span class="scroll-icon">↓</span>
+                </div>
+            </div>
+        </main>
+
+        <footer class="footer">
+            <p>每一个未发送，都是真实的心声</p>
+            <p class="disclaimer">这里是情绪的出口，不是专业心理咨询</p>
+        </footer>
+    </div>
+
+    <!-- 回复模态框 -->
+    <div class="modal-overlay" id="replyModal">
+        <div class="modal-content">
+            <span class="close-modal" id="closeModal">&times;</span>
+            <h3>写一句安慰</h3>
+            <p class="original-post" id="originalPost"></p>
+            <textarea 
+                id="replyContent" 
+                placeholder="留下一句温暖的话..." 
+                maxlength="150"
+            ></textarea>
+            <div class="modal-footer">
+                <span class="reply-char-count" id="replyCharCount">0/150</span>
+                <button class="reply-btn" id="replyBtn">发送安慰</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 举报模态框 -->
+    <div class="modal-overlay" id="reportModal">
+        <div class="modal-content report-modal">
+            <span class="close-modal" id="closeReportModal">&times;</span>
+            <h3>报告内容</h3>
+            <p>请选择原因：</p>
+            <div class="report-options">
+                <label class="report-option">
+                    <input type="radio" name="reportReason" value="inappropriate">
+                    <span>内容不当</span>
+                </label>
+                <label class="report-option">
+                    <input type="radio" name="reportReason" value="harmful">
+                    <span>有害信息</span>
+                </label>
+                <label class="report-option">
+                    <input type="radio" name="reportReason" value="spam">
+                    <span>垃圾信息</span>
+                </label>
+                <label class="report-option">
+                    <input type="radio" name="reportReason" value="other">
+                    <span>其他</span>
+                </label>
+            </div>
+            <button class="report-submit-btn" id="reportSubmitBtn">确认报告</button>
+        </div>
+    </div>
+
+    <!-- Toast 提示 -->
+    <div class="toast" id="toast"></div>
+
+    <script type="module" src="app.js"></script>
+</body>
+</html>
