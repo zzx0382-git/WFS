@@ -29,19 +29,23 @@ document.addEventListener('DOMContentLoaded', () => {
     const submitBtn = document.getElementById('submitBtn');
     const echoList = document.getElementById('echoList');
     const emptyState = document.getElementById('emptyState');
-    
+    const loadingState = document.getElementById('loadingState');
+    const scrollIndicator = document.getElementById('scrollIndicator');
+
     const replyModal = document.getElementById('replyModal');
     const closeModal = document.getElementById('closeModal');
     const originalPost = document.getElementById('originalPost');
     const replyContent = document.getElementById('replyContent');
     const replyCharCount = document.getElementById('replyCharCount');
     const replyBtn = document.getElementById('replyBtn');
-    
+
     const reportModal = document.getElementById('reportModal');
     const closeReportModal = document.getElementById('closeReportModal');
     const reportSubmitBtn = document.getElementById('reportSubmitBtn');
-    
+
     const toast = document.getElementById('toast');
+    const toastIcon = toast.querySelector('.toast-icon');
+    const toastMessage = toast.querySelector('.toast-message');
 
     function showRandomQuote() {
         const randomIndex = Math.floor(Math.random() * emotionQuotes.length);
@@ -61,8 +65,16 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function showToast(message, type = 'success') {
-        toast.textContent = message;
-        toast.className = 'toast show';
+        const icons = {
+            success: '✨',
+            error: '💔',
+            info: '💭'
+        };
+
+        toastIcon.textContent = icons[type] || icons.info;
+        toastMessage.textContent = message;
+        toast.className = `toast ${type} show`;
+
         setTimeout(() => {
             toast.className = 'toast';
         }, 3000);
@@ -70,20 +82,33 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function loadEchos() {
         try {
+            loadingState.style.display = 'flex';
+            echoList.style.display = 'none';
+            emptyState.style.display = 'none';
+
             const { data: echosData, error } = await supabase
                 .from('echos')
                 .select('*')
-                .order('created_at', { ascending: false });
+                .order('created_at', { ascending: false })
+                .limit(20);
 
             if (error) throw error;
 
+            if (echosData.length === 0) {
+                loadingState.style.display = 'none';
+                emptyState.style.display = 'block';
+                scrollIndicator.classList.add('hidden');
+                return;
+            }
+
             const echosWithReplies = await Promise.all(
-                echosData.map(async echo => {
+                echosData.slice(0, 10).map(async echo => {
                     const { data: replies, error } = await supabase
                         .from('replies')
                         .select('*')
                         .eq('echo_id', echo.id)
-                        .order('created_at', { ascending: true });
+                        .order('created_at', { ascending: true })
+                        .limit(3);
 
                     if (error) throw error;
 
@@ -95,25 +120,31 @@ document.addEventListener('DOMContentLoaded', () => {
             );
 
             echos = echosWithReplies;
+            loadingState.style.display = 'none';
+            echoList.style.display = 'flex';
+            emptyState.style.display = 'none';
+
             renderEchos();
         } catch (error) {
             console.error('加载失败:', error);
-            showToast('加载失败，请检查网络连接');
+            loadingState.style.display = 'none';
+            showToast('加载失败，请检查网络连接', 'error');
         }
     }
 
     function renderEchos() {
         if (echos.length === 0) {
-            echoList.style.display = 'none';
+            echoList.innerHTML = '';
             emptyState.style.display = 'block';
+            scrollIndicator.classList.add('hidden');
             return;
         }
 
-        echoList.style.display = 'flex';
         emptyState.style.display = 'none';
-        
-        echoList.innerHTML = echos.map(echo => `
-            <div class="echo-card" data-id="${echo.id}">
+        scrollIndicator.classList.remove('hidden');
+
+        echoList.innerHTML = echos.map((echo, index) => `
+            <div class="echo-card" data-id="${echo.id}" style="animation-delay: ${index * 0.1}s">
                 <p class="echo-content">${escapeHtml(echo.content)}</p>
                 <div class="echo-meta">
                     <span class="echo-time">${formatTime(echo.created_at)}</span>
@@ -138,6 +169,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 ` : ''}
             </div>
         `).join('');
+
+        setTimeout(() => {
+            document.querySelectorAll('.echo-card').forEach((card, i) => {
+                setTimeout(() => {
+                    card.classList.add('visible');
+                }, i * 100);
+            });
+        }, 100);
     }
 
     function escapeHtml(text) {
@@ -148,15 +187,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function formatTime(dateString) {
         if (!dateString) return '刚刚';
-        
+
         const date = new Date(dateString);
         const now = new Date();
         const diff = now - date;
-        
+
         const minutes = Math.floor(diff / 60000);
         const hours = Math.floor(diff / 3600000);
         const days = Math.floor(diff / 86400000);
-        
+
         if (minutes < 1) return '刚刚';
         if (minutes < 60) return `${minutes}分钟前`;
         if (hours < 24) return `${hours}小时前`;
@@ -167,9 +206,11 @@ document.addEventListener('DOMContentLoaded', () => {
     async function submitPost() {
         const content = postContent.value.trim();
         if (!content) {
-            showToast('请写下你的心事');
+            showToast('请写下你的心事', 'info');
             return;
         }
+
+        submitBtn.classList.add('loading');
 
         try {
             const { data, error } = await supabase
@@ -187,12 +228,61 @@ document.addEventListener('DOMContentLoaded', () => {
             echos.unshift(newEcho);
             postContent.value = '';
             charCount.textContent = '0/200';
-            renderEchos();
-            showToast('已保存到草稿箱');
+
+            submitBtn.classList.remove('loading');
+            submitBtn.classList.add('success');
+
+            if (echos.length === 1) {
+                echoList.style.display = 'flex';
+                emptyState.style.display = 'none';
+            }
+
+            renderEchosWithNewCard();
+
+            setTimeout(() => {
+                submitBtn.classList.remove('success');
+            }, 2000);
+
+            showToast('已保存到草稿箱', 'success');
         } catch (error) {
             console.error('发布失败:', error);
-            showToast('保存失败，请重试');
+            submitBtn.classList.remove('loading');
+            showToast('保存失败，请重试', 'error');
         }
+    }
+
+    function renderEchosWithNewCard() {
+        emptyState.style.display = 'none';
+        scrollIndicator.classList.remove('hidden');
+
+        echoList.innerHTML = echos.map((echo, index) => `
+            <div class="echo-card ${index === 0 ? 'new-card' : ''}" data-id="${echo.id}">
+                <p class="echo-content">${escapeHtml(echo.content)}</p>
+                <div class="echo-meta">
+                    <span class="echo-time">${formatTime(echo.created_at)}</span>
+                    <div class="echo-actions">
+                        <button class="action-btn reply-btn" data-id="${echo.id}">
+                            <span>💝</span> 安慰
+                        </button>
+                        <button class="action-btn report-btn" data-id="${echo.id}">
+                            <span>🚩</span> 报告
+                        </button>
+                    </div>
+                </div>
+                ${echo.replies.length > 0 ? `
+                <div class="reply-section">
+                    ${echo.replies.map(reply => `
+                        <div class="reply-item">
+                            <p class="reply-content">${escapeHtml(reply.content)}</p>
+                            <span class="reply-time">${formatTime(reply.created_at)}</span>
+                        </div>
+                    `).join('')}
+                </div>
+                ` : ''}
+            </div>
+        `).join('');
+
+        echoList.querySelector('.echo-card').classList.add('visible');
     }
 
     function openReplyModal(echoId) {
@@ -209,9 +299,11 @@ document.addEventListener('DOMContentLoaded', () => {
     async function submitReply() {
         const content = replyContent.value.trim();
         if (!content) {
-            showToast('请写下安慰的话');
+            showToast('请写下安慰的话', 'info');
             return;
         }
+
+        replyBtn.classList.add('loading');
 
         try {
             const { data, error } = await supabase
@@ -228,11 +320,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
             replyModal.classList.remove('active');
             replyContent.value = '';
+            replyCharCount.textContent = '0/150';
+            replyBtn.classList.remove('loading');
+
             renderEchos();
-            showToast('安慰已送达');
+            showToast('安慰已送达 💝', 'success');
         } catch (error) {
             console.error('回复失败:', error);
-            showToast('发送失败，请重试');
+            replyBtn.classList.remove('loading');
+            showToast('发送失败，请重试', 'error');
         }
     }
 
@@ -247,24 +343,24 @@ document.addEventListener('DOMContentLoaded', () => {
     function submitReport() {
         const reason = document.querySelector('input[name="reportReason"]:checked');
         if (!reason) {
-            showToast('请选择原因');
+            showToast('请选择原因', 'info');
             return;
         }
 
-        showToast('感谢反馈，我们会处理');
+        showToast('感谢反馈，我们会处理', 'success');
         reportModal.classList.remove('active');
     }
 
     showRandomQuote();
-    
+
     setInterval(showRandomQuote, 15000);
-    
+
     postContent.addEventListener('input', () => {
         updateCharCount(postContent, charCount, 200);
     });
-    
+
     submitBtn.addEventListener('click', submitPost);
-    
+
     postContent.addEventListener('keydown', (e) => {
         if (e.key === 'Enter' && e.ctrlKey) {
             submitPost();
@@ -284,7 +380,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     replyBtn.addEventListener('click', submitReply);
-    
+
     replyContent.addEventListener('keydown', (e) => {
         if (e.key === 'Enter' && e.ctrlKey) {
             submitReply();
@@ -294,14 +390,15 @@ document.addEventListener('DOMContentLoaded', () => {
     reportSubmitBtn.addEventListener('click', submitReport);
 
     echoList.addEventListener('click', (e) => {
-        const replyBtn = e.target.closest('.reply-btn');
-        const reportBtn = e.target.closest('.report-btn');
-        
-        if (replyBtn) {
-            const echoId = replyBtn.dataset.id;
+        const replyBtnEl = e.target.closest('.reply-btn');
+        const reportBtnEl = e.target.closest('.report-btn');
+
+        if (replyBtnEl) {
+            const echoId = replyBtnEl.dataset.id;
+            replyBtnEl.classList.add('liked');
             openReplyModal(echoId);
-        } else if (reportBtn) {
-            const echoId = reportBtn.dataset.id;
+        } else if (reportBtnEl) {
+            const echoId = reportBtnEl.dataset.id;
             openReportModal(echoId);
         }
     });
